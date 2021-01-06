@@ -29,7 +29,9 @@ links = "cec"
 [dependencies]
 
 [build-dependencies]
+cc = "1.0.66"
 cmake = '0.1.45'
 copy_dir = '0.1.2'
+
 [badges.maintenance]
 status = 'passively-maintained'

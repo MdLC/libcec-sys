@@ -13,6 +13,32 @@ const LIBCEC_BUILD: &str = "libcec_build";
 const PLATFORM_BUILD: &str = "platform_build";
 const LIBCEC_SRC: &str = "vendor";
 
+fn libcec_installed(dst: &Path) -> bool {
+    // create the C snippet to compile
+    let check_content = "#include <libcec/cecc.h>
+
+int main() {
+  return (int) libcec_initialise;
+}
+";
+
+    let check_path = dst.join("check.c");
+    if let Err(_) = std::fs::write(&check_path, check_content) {
+        return false;
+    }
+
+    // attempt to compile the C snippet
+    let compiler = cc::Build::new().get_compiler();
+    let mut cmd = Command::new(compiler.path());
+    cmd.arg(check_path).arg("-o").arg("/dev/null").arg("-lcec");
+
+    // if it succeeded, then we should be able to use the system libcec
+    match cmd.status() {
+        Ok(status) => status.success(),
+        Err(_) => false,
+    }
+}
+
 fn prepare_build(dst: &Path) {
     let dst_src = dst.join(LIBCEC_SRC);
     if dst_src.exists() && dst_src.is_dir() {
@@ -73,6 +99,7 @@ fn compile_libcec(dst: &Path) {
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
+
     let cmakelists = format!("{}/CMakeLists.txt", LIBCEC_SRC);
     let libcec_git_dir = Path::new(&cmakelists);
     if !libcec_git_dir.exists() {
@@ -85,6 +112,11 @@ fn main() {
         )
     }
     let dst = PathBuf::from(env::var_os("OUT_DIR").unwrap());
+
+    if libcec_installed(&dst) {
+        println!("cargo:rustc-link-lib=cec");
+        return;
+    }
 
     println!("Building libcec from local source");
     prepare_build(&dst);
